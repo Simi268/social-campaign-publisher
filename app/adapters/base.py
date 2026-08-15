@@ -2,14 +2,14 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 
-@dataclass
+@dataclass(frozen=True)
 class PublishRequest:
     caption: str
-    image_path: str | None
+    image_path: str
     idempotency_key: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class PublishResult:
     external_post_id: str
     status: str
@@ -19,5 +19,4 @@ class SocialPublisher(ABC):
 
     @abstractmethod
     def publish(self, request: PublishRequest) -> PublishResult:
-        """Publish content to a social platform."""
         raise NotImplementedError
