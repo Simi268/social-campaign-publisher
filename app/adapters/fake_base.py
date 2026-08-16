@@ -10,14 +10,12 @@ from app.adapters.base import (
 
 
 class FakePlatformPublisher(SocialPublisher):
-    """Shared HTTP implementation for the local fake platform."""
-
     platform: str
 
     def __init__(
         self,
+        access_token: str,
         base_url: str = "http://127.0.0.1:9000",
-        access_token: str = "fake-access-token",
         max_retries: int = 3,
     ):
         self.base_url = base_url.rstrip("/")

@@ -4,7 +4,9 @@ from app.adapters.x_platform import FakeXPublisher
 
 
 def test_instagram_publisher():
-    publisher = FakeInstagramPublisher()
+    publisher = FakeInstagramPublisher(
+        access_token="fake-access-token"
+    )
 
     request = PublishRequest(
         caption="Instagram test",
@@ -19,7 +21,9 @@ def test_instagram_publisher():
 
 
 def test_x_publisher():
-    publisher = FakeXPublisher()
+    publisher = FakeXPublisher(
+        access_token="fake-access-token"
+    )
 
     request = PublishRequest(
         caption="X test",
@@ -34,7 +38,9 @@ def test_x_publisher():
 
 
 def test_idempotent_publish():
-    publisher = FakeInstagramPublisher()
+    publisher = FakeInstagramPublisher(
+        access_token="fake-access-token"
+    )
 
     request = PublishRequest(
         caption="Duplicate test",
