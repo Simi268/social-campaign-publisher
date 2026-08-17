@@ -364,3 +364,16 @@ End-to-End Demo         ✅
 - Structured logging and metrics
 - Distributed worker scaling
 - Dead-letter queue for permanently failed posts
+
+## Limitations
+
+- The core system uses the provided fake social platform server.
+- Real Instagram and X publishing is not enabled.
+- The current implementation is designed as a local backend demonstration.
+- Production-scale distributed scheduling and worker scaling are future improvements.
+
+## Capstone
+
+This project was developed as the **Social Campaign Publisher capstone for the FlyRank Internship Backend Track**.
+
+The implementation follows the capstone requirements for adapter architecture, idempotent publishing, rate-limit handling, durable background work, encrypted credentials, signed webhooks, persistence, testing, and documented evidence.
