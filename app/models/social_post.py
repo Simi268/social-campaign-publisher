@@ -48,6 +48,12 @@ class SocialPost(Base):
         String(255),
         nullable=True,
     )
+    error_message: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    
 
     idempotency_key: Mapped[str] = mapped_column(
         String(255),

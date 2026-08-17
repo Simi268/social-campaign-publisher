@@ -208,3 +208,51 @@ def test_publish_due_posts():
 
     finally:
         db.close()
+
+def test_publish_failure_marks_post_failed():
+    from app.workers.publisher import PUBLISHERS
+
+    db, post = create_post("instagram")
+
+    try:
+        worker = PublisherWorker(
+            credential_service=FakeCredentialService()
+        )
+
+        class FailingPublisher:
+            def __init__(self, access_token):
+                pass
+
+            def publish(self, request):
+                raise RuntimeError(
+                    "Fake platform unavailable"
+                )
+
+        original_publisher = PUBLISHERS["instagram"]
+
+        PUBLISHERS["instagram"] = FailingPublisher
+
+        try:
+            with pytest.raises(
+                RuntimeError,
+                match="Fake platform unavailable",
+            ):
+                worker.publish_post(
+                    db,
+                    post,
+                )
+
+            db.refresh(post)
+
+            assert post.status == "FAILED"
+            assert (
+                post.error_message
+                == "Fake platform unavailable"
+            )
+            assert post.external_post_id is None
+
+        finally:
+            PUBLISHERS["instagram"] = original_publisher
+
+    finally:
+        db.close()
