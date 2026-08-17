@@ -6,6 +6,8 @@ from app.api.campaigns import router as campaign_router
 
 from app.api.social_posts import router as social_posts_router
 
+from app.api.worker import router as worker_router
+
 app = FastAPI(
     title="Social Campaign Publisher",
     version="0.1.0",
@@ -15,6 +17,7 @@ app = FastAPI(
 app.include_router(webhook_router)
 app.include_router(campaign_router)
 app.include_router(social_posts_router)
+app.include_router(worker_router)
 
 
 @app.get("/")

@@ -84,3 +84,42 @@ def create_social_post(
     db.refresh(post)
 
     return post
+
+
+@router.post(
+    "/posts/{post_id}/ready",
+    response_model=SocialPostResponse,
+)
+def mark_post_ready(
+    post_id: int,
+    db: Session = Depends(get_db),
+):
+    post = db.get(SocialPost, post_id)
+
+    if post is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Social post not found",
+        )
+
+    if post.status != "DRAFT":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Social post cannot be marked READY "
+                f"from status {post.status}"
+            ),
+        )
+
+    if post.scheduled_at is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Social post must have a scheduled_at time",
+        )
+
+    post.status = "READY"
+
+    db.commit()
+    db.refresh(post)
+
+    return post

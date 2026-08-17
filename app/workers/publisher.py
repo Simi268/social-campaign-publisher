@@ -9,6 +9,7 @@ from app.adapters.x_platform import FakeXPublisher
 from app.models.social_post import SocialPost
 from app.services.credentials import CredentialService
 
+from datetime import datetime, timedelta, timezone
 
 PUBLISHERS = {
     "instagram": FakeInstagramPublisher,
@@ -148,12 +149,49 @@ class PublisherWorker:
 
         return posts
 
+    def recover_stale_publishing(
+        self,
+        db: Session,
+        timeout_minutes: int = 15,
+    ) -> list[SocialPost]:
+        cutoff = (
+            datetime.now(timezone.utc)
+            - timedelta(minutes=timeout_minutes)
+        )
+
+        statement = (
+            select(SocialPost)
+            .where(
+                SocialPost.status == "PUBLISHING",
+                SocialPost.updated_at < cutoff,
+                SocialPost.external_post_id.is_(None),
+            )
+        )
+
+        posts = list(db.scalars(statement).all())
+
+        for post in posts:
+            post.status = "READY"
+            post.error_message = None
+
+        if posts:
+            db.commit()
+
+            for post in posts:
+                db.refresh(post)
+
+        return posts
+
     def publish_due_posts(
         self,
         db: Session,
         campaign_id: int | None = None,
         limit: int = 10,
     ) -> list[PublishResult]:
+        self.recover_stale_publishing(
+            db,
+        )
+
         posts = self.claim_due_posts(
             db,
             campaign_id=campaign_id,

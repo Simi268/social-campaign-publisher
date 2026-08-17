@@ -256,3 +256,112 @@ def test_publish_failure_marks_post_failed():
 
     finally:
         db.close()
+
+def test_recover_stale_publishing_post():
+    db, post = create_post(
+        "instagram",
+        "PUBLISHING",
+    )
+
+    try:
+        post.scheduled_at = (
+            datetime.now(timezone.utc)
+            - timedelta(minutes=30)
+        )
+
+        post.updated_at = (
+            datetime.now(timezone.utc)
+            - timedelta(minutes=30)
+        )
+
+        db.commit()
+
+        worker = PublisherWorker(
+            credential_service=FakeCredentialService()
+        )
+
+        recovered = worker.recover_stale_publishing(
+            db,
+            timeout_minutes=15,
+        )
+
+        db.refresh(post)
+
+        assert post.id in [
+            item.id for item in recovered
+        ]
+
+        assert post.status == "READY"
+        assert post.error_message is None
+        assert post.external_post_id is None
+
+    finally:
+        db.close()
+
+
+def test_fresh_publishing_post_is_not_recovered():
+    db, post = create_post(
+        "instagram",
+        "PUBLISHING",
+    )
+
+    try:
+        post.updated_at = (
+            datetime.now(timezone.utc)
+            - timedelta(minutes=5)
+        )
+
+        db.commit()
+
+        worker = PublisherWorker(
+            credential_service=FakeCredentialService()
+        )
+
+        recovered = worker.recover_stale_publishing(
+            db,
+            timeout_minutes=15,
+        )
+
+        db.refresh(post)
+
+        assert post.id not in [
+            item.id for item in recovered
+        ]
+
+        assert post.status == "PUBLISHING"
+
+    finally:
+        db.close()
+
+def test_stale_post_is_recovered_and_published():
+    db, post = create_post(
+        "instagram",
+        "PUBLISHING",
+    )
+
+    try:
+        post.scheduled_at = (
+            datetime.now(timezone.utc)
+            - timedelta(minutes=30)
+        )
+        post.updated_at = (
+            datetime.now(timezone.utc)
+            - timedelta(minutes=30)
+        )
+        db.commit()
+
+        worker = PublisherWorker(
+            credential_service=FakeCredentialService()
+        )
+
+        results = worker.publish_due_posts(db)
+
+        db.refresh(post)
+
+        assert len(results) >= 1
+        assert post.status == "QUEUED"
+        assert post.external_post_id is not None
+        assert post.error_message is None
+
+    finally:
+        db.close()
