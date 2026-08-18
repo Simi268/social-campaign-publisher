@@ -9,6 +9,7 @@ from app.workers.publisher import PublisherWorker
 from datetime import datetime, timedelta, timezone
 
 
+
 class FakeCredentialService:
     def get_token(self, db, platform):
         return "fake-access-token"
@@ -117,7 +118,10 @@ def test_get_due_posts():
             credential_service=FakeCredentialService()
         )
 
-        due_posts = worker.get_due_posts(db)
+        due_posts = worker.get_due_posts(
+    db,
+    campaign_id=post.campaign_id,
+)
 
         assert post.id in [item.id for item in due_posts]
 
@@ -197,7 +201,10 @@ def test_publish_due_posts():
             credential_service=FakeCredentialService()
         )
 
-        results = worker.publish_due_posts(db)
+        results = worker.publish_due_posts(
+    db,
+    campaign_id=post.campaign_id,
+)
 
         assert len(results) >= 1
 
@@ -365,3 +372,71 @@ def test_stale_post_is_recovered_and_published():
 
     finally:
         db.close()
+
+def test_429_retry_honors_retry_after(monkeypatch):
+    from app.adapters.instagram import FakeInstagramPublisher
+    from app.adapters.base import PublishRequest
+
+    class FakeResponse:
+        def __init__(self, status_code, headers=None, data=None):
+            self.status_code = status_code
+            self.headers = headers or {}
+            self._data = data
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise RuntimeError(
+                    f"HTTP {self.status_code}"
+                )
+
+        def json(self):
+            return self._data
+
+    responses = [
+        FakeResponse(
+            429,
+            headers={"Retry-After": "1"},
+        ),
+        FakeResponse(
+            200,
+            data={
+                "external_post_id": "instagram-retry-success",
+                "status": "queued",
+            },
+        ),
+    ]
+
+    sleep_calls = []
+
+    def fake_post(*args, **kwargs):
+        return responses.pop(0)
+
+    def fake_sleep(seconds):
+        sleep_calls.append(seconds)
+
+    monkeypatch.setattr(
+        "app.adapters.fake_base.httpx.post",
+        fake_post,
+    )
+
+    monkeypatch.setattr(
+        "app.adapters.fake_base.time.sleep",
+        fake_sleep,
+    )
+
+    publisher = FakeInstagramPublisher(
+    access_token="fake-access-token",
+    max_retries=3,
+)
+
+    result = publisher.publish(
+        PublishRequest(
+            caption="Retry test",
+            image_path="test.jpg",
+            idempotency_key="retry-test-001",
+        )
+    )
+
+    assert result.external_post_id == "instagram-retry-success"
+    assert result.status == "queued"
+    assert sleep_calls == [1]
